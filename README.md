@@ -11,6 +11,17 @@ A fast, terminal-based file search and content exploration tool built with Rust 
 - **Syntax highlighting**: Match highlighting in search results
 - **Keyboard navigation**: Vim-style navigation (hjkl) and standard arrow keys
 
+## Screenshots
+
+### File Browser
+<img src="ratsnest-file-browser.jpg" alt="File Browser" width="600"/>
+
+### Content Search
+<img src="ratsnest-content-search.jpg" alt="Content Search" width="600"/>
+
+### Help Screen
+<img src="ratsnest-help.jpg" alt="Help Screen" width="600"/>
+
 ## Installation
 
 ### From Source
