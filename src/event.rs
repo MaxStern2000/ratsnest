@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
+use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent, KeyEventKind};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
@@ -30,8 +30,12 @@ impl EventHandler {
                 if event::poll(timeout).unwrap_or(false) {
                     match event::read() {
                         Ok(CrosstermEvent::Key(key)) => {
-                            if tx_clone.send(Event::Key(key)).is_err() {
-                                break;
+                            // Filter out key release events on Windows
+                            // This prevents double-triggering of key events
+                            if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat {
+                                if tx_clone.send(Event::Key(key)).is_err() {
+                                    break;
+                                }
                             }
                         }
                         Ok(CrosstermEvent::Mouse(mouse)) => {
