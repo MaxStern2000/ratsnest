@@ -59,6 +59,10 @@ ratsnest -d /path/to/directory -p "pattern"
 - `Page Up/Down`: Navigate by pages
 - `Home/End`: Go to start/end of list
 - `Tab`: Switch between File Browser and Content Search modes
+- `n/]`: Next page
+- `p/[`: Previous page
+- `Ctrl+g`: First page
+- `G`: Last page
 
 ### Search
 - `/`: Start search input (live search in File Browser mode)
@@ -75,11 +79,13 @@ ratsnest -d /path/to/directory -p "pattern"
 - Lists all files in the directory
 - Live fuzzy search as you type
 - Respects gitignore patterns
+- **Pagination**: Browse files in pages when directory contains many files
 
 ### Content Search Mode
 - Search for text within files
 - Shows filename, line number, and context
 - Highlights matches in results
+- **Pagination**: Browse search results in pages for large datasets
 
 ## Requirements
 
