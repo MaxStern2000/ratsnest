@@ -11,13 +11,25 @@ use ratatui::{
 pub fn render(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
 
+    // Add extra row for pagination info if needed
+    let main_constraints = if app.get_pagination_info().is_empty() {
+        vec![
+            Constraint::Length(3), // Header
+            Constraint::Min(0),    // Content
+            Constraint::Length(3), // Footer
+        ]
+    } else {
+        vec![
+            Constraint::Length(3), // Header
+            Constraint::Min(0),    // Content
+            Constraint::Length(2), // Pagination info
+            Constraint::Length(3), // Footer
+        ]
+    };
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(0),
-            Constraint::Length(3),
-        ])
+        .constraints(main_constraints)
         .split(size);
 
     render_header(frame, chunks[0], app);
@@ -28,7 +40,15 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         AppMode::Help => render_help(frame, chunks[1]),
     }
 
-    render_footer(frame, chunks[2], app);
+    // Render pagination info if we have multiple pages
+    let footer_idx = if app.get_pagination_info().is_empty() {
+        2 // No pagination info, footer is at index 2
+    } else {
+        render_pagination_info(frame, chunks[2], app);
+        3 // Footer is at index 3
+    };
+
+    render_footer(frame, chunks[footer_idx], app);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, app: &App) {
@@ -177,12 +197,31 @@ fn render_content_search(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(list, chunks[1]);
 }
 
+fn render_pagination_info(frame: &mut Frame, area: Rect, app: &App) {
+    let pagination_info = app.get_pagination_info();
+    
+    if !pagination_info.is_empty() {
+        let pagination = Paragraph::new(pagination_info)
+            .style(Style::default().fg(Color::Cyan))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::TOP | Borders::LEFT | Borders::RIGHT));
+
+        frame.render_widget(pagination, area);
+    }
+}
+
 fn render_help(frame: &mut Frame, area: Rect) {
     let help_text = vec![
         Line::from(vec![Span::styled("Navigation:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
         Line::from("  ↑/k, ↓/j    Navigate up/down"),
         Line::from("  Page Up/Down  Navigate by pages"),
         Line::from("  Home/End     Go to start/end"),
+        Line::from(""),
+        Line::from(vec![Span::styled("Pagination:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+        Line::from("  n/]          Next page"),
+        Line::from("  p/[          Previous page"),
+        Line::from("  Ctrl+g       First page"),
+        Line::from("  G            Last page"),
         Line::from(""),
         Line::from(vec![Span::styled("Search:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
         Line::from("  /            Start search (live for files)"),
@@ -200,6 +239,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from(vec![Span::styled("Features:", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))]),
         Line::from("• Fuzzy search for filenames (live)"),
         Line::from("• Content search across all files"),
+        Line::from("• Pagination for large result sets"),
         Line::from("• Respects .gitignore files"),
         Line::from("• Async/concurrent file processing"),
         Line::from("• Highlight matches in search"),
@@ -229,7 +269,7 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     };
 
     let footer_text = format!(
-        " {} | {} | Tab: Switch Mode | /: Search | r: Refresh | q: Quit | h: Help ",
+        " {} | {} | Tab: Switch | /: Search | n/p: Page | r: Refresh | q: Quit | h: Help ",
         mode_indicator, input_indicator
     );
 

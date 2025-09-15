@@ -28,9 +28,18 @@ pub struct App {
     pub selected_index: usize,
     pub scroll_offset: usize,
     
-    // Search results
+    // Search results with pagination
     pub file_results: Vec<PathBuf>,
     pub content_results: Vec<SearchResult>,
+    
+    // All results (unpaginated for searching through)
+    all_file_results: Vec<PathBuf>,
+    all_content_results: Vec<SearchResult>,
+    
+    // Pagination
+    pub current_page: usize,
+    pub page_size: usize,
+    pub total_pages: usize,
     
     // File searcher
     file_searcher: FileSearcher,
@@ -42,9 +51,6 @@ pub struct App {
     // Async search state
     pub is_searching: bool,
     pub search_progress: String,
-    
-    // Pagination for large result sets
-    pub max_visible_items: usize,
 }
 
 impl App {
@@ -62,15 +68,19 @@ impl App {
             scroll_offset: 0,
             file_results: Vec::new(),
             content_results: Vec::new(),
+            all_file_results: Vec::new(),
+            all_content_results: Vec::new(),
+            current_page: 0,
+            page_size: 1000, // Items per page
+            total_pages: 0,
             file_searcher,
             last_search_time: Instant::now(),
-            search_debounce_duration: Duration::from_millis(150), // 150ms debounce
+            search_debounce_duration: Duration::from_millis(150),
             is_searching: false,
             search_progress: String::new(),
-            max_visible_items: 1000, // Limit UI rendering
         };
         
-        // Initial file listing (async)
+        // Initial file listing
         app.refresh_files().await?;
         
         Ok(app)
@@ -120,6 +130,19 @@ impl App {
                 self.file_searcher.invalidate_caches().await;
                 self.refresh_files().await?;
             }
+            // Pagination controls
+            KeyCode::Char('n') | KeyCode::Char(']') => {
+                self.next_page();
+            }
+            KeyCode::Char('p') | KeyCode::Char('[') => {
+                self.prev_page();
+            }
+            KeyCode::Char('g') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.first_page();
+            }
+            KeyCode::Char('G') => {
+                self.last_page();
+            }
             // Navigation with improved bounds checking
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.selected_index > 0 {
@@ -128,7 +151,7 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                let max_index = self.get_max_index();
+                let max_index = self.get_current_page_items_len();
                 if self.selected_index + 1 < max_index {
                     self.selected_index += 1;
                     self.adjust_scroll();
@@ -139,7 +162,7 @@ impl App {
                 self.adjust_scroll();
             }
             KeyCode::PageDown => {
-                let max_index = self.get_max_index();
+                let max_index = self.get_current_page_items_len();
                 self.selected_index = (self.selected_index + 20).min(max_index.saturating_sub(1));
                 self.adjust_scroll();
             }
@@ -148,7 +171,7 @@ impl App {
                 self.scroll_offset = 0;
             }
             KeyCode::End => {
-                let max_index = self.get_max_index();
+                let max_index = self.get_current_page_items_len();
                 self.selected_index = max_index.saturating_sub(1);
                 self.adjust_scroll();
             }
@@ -219,8 +242,9 @@ impl App {
         self.search_progress = "Loading files...".to_string();
         
         let files = self.file_searcher.list_files().await?;
-        self.file_results = files.into_iter().take(self.max_visible_items).collect();
+        self.all_file_results = files;
         
+        self.update_pagination();
         self.reset_selection();
         self.is_searching = false;
         self.search_progress.clear();
@@ -237,8 +261,9 @@ impl App {
         self.search_progress = format!("Searching files for '{}'...", self.search_query);
         
         let results = self.file_searcher.fuzzy_search_files(&self.search_query).await?;
-        self.file_results = results.into_iter().take(self.max_visible_items).collect();
+        self.all_file_results = results;
         
+        self.update_pagination();
         self.reset_selection();
         self.is_searching = false;
         self.search_progress.clear();
@@ -247,7 +272,8 @@ impl App {
     
     async fn search_content(&mut self) -> Result<()> {
         if self.search_query.is_empty() {
-            self.content_results.clear();
+            self.all_content_results.clear();
+            self.update_pagination();
             self.reset_selection();
             return Ok(());
         }
@@ -256,12 +282,82 @@ impl App {
         self.search_progress = format!("Searching content for '{}'...", self.search_query);
         
         let results = self.file_searcher.search_content(&self.search_query).await?;
-        self.content_results = results.into_iter().take(self.max_visible_items).collect();
+        self.all_content_results = results;
         
+        self.update_pagination();
         self.reset_selection();
         self.is_searching = false;
         self.search_progress.clear();
         Ok(())
+    }
+    
+    fn update_pagination(&mut self) {
+        let total_items = match self.mode {
+            AppMode::FileBrowser => self.all_file_results.len(),
+            AppMode::ContentSearch => self.all_content_results.len(),
+            _ => 0,
+        };
+        
+        self.total_pages = if total_items == 0 {
+            0
+        } else {
+            (total_items + self.page_size - 1) / self.page_size
+        };
+        
+        // Ensure current page is valid
+        if self.current_page >= self.total_pages && self.total_pages > 0 {
+            self.current_page = self.total_pages - 1;
+        }
+        
+        self.update_current_page_results();
+    }
+    
+    fn update_current_page_results(&mut self) {
+        let start_idx = self.current_page * self.page_size;
+        
+        match self.mode {
+            AppMode::FileBrowser => {
+                let end_idx = ((start_idx + self.page_size).min(self.all_file_results.len())).max(start_idx);
+                self.file_results = self.all_file_results[start_idx..end_idx].to_vec();
+            }
+            AppMode::ContentSearch => {
+                let end_idx = ((start_idx + self.page_size).min(self.all_content_results.len())).max(start_idx);
+                self.content_results = self.all_content_results[start_idx..end_idx].to_vec();
+            }
+            _ => {}
+        }
+    }
+    
+    fn next_page(&mut self) {
+        if self.current_page + 1 < self.total_pages {
+            self.current_page += 1;
+            self.update_current_page_results();
+            self.reset_selection();
+        }
+    }
+    
+    fn prev_page(&mut self) {
+        if self.current_page > 0 {
+            self.current_page -= 1;
+            self.update_current_page_results();
+            self.reset_selection();
+        }
+    }
+    
+    fn first_page(&mut self) {
+        if self.total_pages > 0 {
+            self.current_page = 0;
+            self.update_current_page_results();
+            self.reset_selection();
+        }
+    }
+    
+    fn last_page(&mut self) {
+        if self.total_pages > 0 {
+            self.current_page = self.total_pages - 1;
+            self.update_current_page_results();
+            self.reset_selection();
+        }
     }
     
     fn reset_selection(&mut self) {
@@ -269,13 +365,13 @@ impl App {
         self.scroll_offset = 0;
     }
     
-    fn get_max_index(&self) -> usize {
+    fn get_current_page_items_len(&self) -> usize {
         match self.mode {
             AppMode::FileBrowser => self.file_results.len(),
             AppMode::ContentSearch => self.content_results.len(),
-            _ => 0,
+             _ => 0,
+            }
         }
-    }
     
     fn adjust_scroll(&mut self) {
         const VISIBLE_ITEMS: usize = 25; // Adjust based on terminal height
@@ -308,7 +404,7 @@ impl App {
     }
     
     pub fn get_visible_items(&self) -> (usize, usize) {
-        let total_items = self.get_max_index();
+        let total_items = self.get_current_page_items_len();
         (self.scroll_offset, total_items)
     }
     
@@ -333,24 +429,44 @@ impl App {
             return self.search_progress.clone();
         }
         
-        match self.mode {
-            AppMode::FileBrowser => {
-                let total = self.file_results.len();
-                if total >= self.max_visible_items {
-                    format!("Files: {}+ (showing first {})", total, self.max_visible_items)
-                } else {
-                    format!("Files: {}", total)
-                }
+        let total_items = match self.mode {
+            AppMode::FileBrowser => self.all_file_results.len(),
+            AppMode::ContentSearch => self.all_content_results.len(),
+            _ => 0,
+        };
+        
+        if self.total_pages <= 1 {
+            match self.mode {
+                AppMode::FileBrowser => format!("Files: {}", total_items),
+                AppMode::ContentSearch => format!("Results: {}", total_items),
+                AppMode::Help => "Help".to_string(),
             }
-            AppMode::ContentSearch => {
-                let total = self.content_results.len();
-                if total >= self.max_visible_items {
-                    format!("Results: {}+ (showing first {})", total, self.max_visible_items)
-                } else {
-                    format!("Results: {}", total)
-                }
+        } else {
+            let start_item = self.current_page * self.page_size + 1;
+            let end_item = ((self.current_page + 1) * self.page_size).min(total_items);
+            
+            match self.mode {
+                AppMode::FileBrowser => format!(
+                    "Files: {}-{} of {} (Page {}/{})", 
+                    start_item, end_item, total_items, 
+                    self.current_page + 1, self.total_pages
+                ),
+                AppMode::ContentSearch => format!(
+                    "Results: {}-{} of {} (Page {}/{})", 
+                    start_item, end_item, total_items, 
+                    self.current_page + 1, self.total_pages
+                ),
+                AppMode::Help => "Help".to_string(),
             }
-            AppMode::Help => "Help".to_string(),
+        }
+    }
+    
+    pub fn get_pagination_info(&self) -> String {
+        if self.total_pages <= 1 {
+            String::new()
+        } else {
+            format!("Page {}/{} | n/]: Next | p/[: Prev | Ctrl+g: First | G: Last", 
+                    self.current_page + 1, self.total_pages)
         }
     }
 }
