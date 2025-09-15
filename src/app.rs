@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::path::PathBuf;
-use tokio::sync::mpsc;
+use tokio::time::{Duration, Instant};
 
 use crate::file_searcher::{FileSearcher, SearchResult};
 
@@ -35,16 +35,21 @@ pub struct App {
     // File searcher
     file_searcher: FileSearcher,
     
+    // Debouncing for live search
+    last_search_time: Instant,
+    search_debounce_duration: Duration,
+    
     // Async search state
-    search_tx: Option<mpsc::UnboundedSender<()>>,
-    search_rx: mpsc::UnboundedReceiver<Vec<SearchResult>>,
     pub is_searching: bool,
+    pub search_progress: String,
+    
+    // Pagination for large result sets
+    pub max_visible_items: usize,
 }
 
 impl App {
     pub async fn new(directory: PathBuf, initial_pattern: Option<String>) -> Result<Self> {
         let file_searcher = FileSearcher::new(directory.clone())?;
-        let (_, search_rx) = mpsc::unbounded_channel();
         
         let mut app = Self {
             should_quit: false,
@@ -58,12 +63,14 @@ impl App {
             file_results: Vec::new(),
             content_results: Vec::new(),
             file_searcher,
-            search_tx: None,
-            search_rx,
+            last_search_time: Instant::now(),
+            search_debounce_duration: Duration::from_millis(150), // 150ms debounce
             is_searching: false,
+            search_progress: String::new(),
+            max_visible_items: 1000, // Limit UI rendering
         };
         
-        // Initial file listing
+        // Initial file listing (async)
         app.refresh_files().await?;
         
         Ok(app)
@@ -92,6 +99,7 @@ impl App {
                     AppMode::ContentSearch => AppMode::FileBrowser,
                     AppMode::Help => AppMode::FileBrowser,
                 };
+                self.reset_selection();
             }
             KeyCode::Char('/') => {
                 self.input_mode = InputMode::Editing;
@@ -107,6 +115,12 @@ impl App {
                     }
                 }
             }
+            KeyCode::Char('r') => {
+                // Refresh/reload files
+                self.file_searcher.invalidate_caches().await;
+                self.refresh_files().await?;
+            }
+            // Navigation with improved bounds checking
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.selected_index > 0 {
                     self.selected_index -= 1;
@@ -114,27 +128,19 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                let max_index = match self.mode {
-                    AppMode::FileBrowser => self.file_results.len(),
-                    AppMode::ContentSearch => self.content_results.len(),
-                    _ => 0,
-                };
+                let max_index = self.get_max_index();
                 if self.selected_index + 1 < max_index {
                     self.selected_index += 1;
                     self.adjust_scroll();
                 }
             }
             KeyCode::PageUp => {
-                self.selected_index = self.selected_index.saturating_sub(10);
+                self.selected_index = self.selected_index.saturating_sub(20);
                 self.adjust_scroll();
             }
             KeyCode::PageDown => {
-                let max_index = match self.mode {
-                    AppMode::FileBrowser => self.file_results.len(),
-                    AppMode::ContentSearch => self.content_results.len(),
-                    _ => 0,
-                };
-                self.selected_index = (self.selected_index + 10).min(max_index.saturating_sub(1));
+                let max_index = self.get_max_index();
+                self.selected_index = (self.selected_index + 20).min(max_index.saturating_sub(1));
                 self.adjust_scroll();
             }
             KeyCode::Home => {
@@ -142,11 +148,7 @@ impl App {
                 self.scroll_offset = 0;
             }
             KeyCode::End => {
-                let max_index = match self.mode {
-                    AppMode::FileBrowser => self.file_results.len(),
-                    AppMode::ContentSearch => self.content_results.len(),
-                    _ => 0,
-                };
+                let max_index = self.get_max_index();
                 self.selected_index = max_index.saturating_sub(1);
                 self.adjust_scroll();
             }
@@ -177,9 +179,11 @@ impl App {
                 } else {
                     self.search_query.insert(self.cursor_position, c);
                     self.cursor_position += 1;
-                    // Live search for files
-                    if self.mode == AppMode::FileBrowser {
-                        self.search_files().await?;
+                    self.last_search_time = Instant::now();
+                    
+                    // Only do live search for file browser and if query is not too short
+                    if self.mode == AppMode::FileBrowser && self.search_query.len() >= 1 {
+                        self.schedule_debounced_search().await?;
                     }
                 }
             }
@@ -187,9 +191,10 @@ impl App {
                 if self.cursor_position > 0 {
                     self.cursor_position -= 1;
                     self.search_query.remove(self.cursor_position);
-                    // Live search for files
+                    self.last_search_time = Instant::now();
+                    
                     if self.mode == AppMode::FileBrowser {
-                        self.search_files().await?;
+                        self.schedule_debounced_search().await?;
                     }
                 }
             }
@@ -197,67 +202,113 @@ impl App {
                 self.cursor_position = self.cursor_position.saturating_sub(1);
             }
             KeyCode::Right => {
-                self.cursor_position = self.cursor_position.min(self.search_query.len());
+                self.cursor_position = (self.cursor_position + 1).min(self.search_query.len());
             }
             _ => {}
         }
         Ok(false)
     }
     
+    async fn schedule_debounced_search(&mut self) -> Result<()> {
+        // Simple debouncing - we'll check in tick() if enough time has passed
+        Ok(())
+    }
+    
     async fn refresh_files(&mut self) -> Result<()> {
-        self.file_results = self.file_searcher.list_files().await?;
-        self.selected_index = 0;
-        self.scroll_offset = 0;
+        self.is_searching = true;
+        self.search_progress = "Loading files...".to_string();
+        
+        let files = self.file_searcher.list_files().await?;
+        self.file_results = files.into_iter().take(self.max_visible_items).collect();
+        
+        self.reset_selection();
+        self.is_searching = false;
+        self.search_progress.clear();
         Ok(())
     }
     
     async fn search_files(&mut self) -> Result<()> {
         if self.search_query.is_empty() {
             self.refresh_files().await?;
-        } else {
-            self.file_results = self.file_searcher.fuzzy_search_files(&self.search_query).await?;
-            self.selected_index = 0;
-            self.scroll_offset = 0;
+            return Ok(());
         }
+        
+        self.is_searching = true;
+        self.search_progress = format!("Searching files for '{}'...", self.search_query);
+        
+        let results = self.file_searcher.fuzzy_search_files(&self.search_query).await?;
+        self.file_results = results.into_iter().take(self.max_visible_items).collect();
+        
+        self.reset_selection();
+        self.is_searching = false;
+        self.search_progress.clear();
         Ok(())
     }
     
     async fn search_content(&mut self) -> Result<()> {
-        if !self.search_query.is_empty() {
-            self.is_searching = true;
-            self.content_results = self.file_searcher.search_content(&self.search_query).await?;
-            self.selected_index = 0;
-            self.scroll_offset = 0;
-            self.is_searching = false;
+        if self.search_query.is_empty() {
+            self.content_results.clear();
+            self.reset_selection();
+            return Ok(());
         }
+        
+        self.is_searching = true;
+        self.search_progress = format!("Searching content for '{}'...", self.search_query);
+        
+        let results = self.file_searcher.search_content(&self.search_query).await?;
+        self.content_results = results.into_iter().take(self.max_visible_items).collect();
+        
+        self.reset_selection();
+        self.is_searching = false;
+        self.search_progress.clear();
         Ok(())
     }
     
+    fn reset_selection(&mut self) {
+        self.selected_index = 0;
+        self.scroll_offset = 0;
+    }
+    
+    fn get_max_index(&self) -> usize {
+        match self.mode {
+            AppMode::FileBrowser => self.file_results.len(),
+            AppMode::ContentSearch => self.content_results.len(),
+            _ => 0,
+        }
+    }
+    
     fn adjust_scroll(&mut self) {
-        const VISIBLE_ITEMS: usize = 20; // Adjust based on terminal height
+        const VISIBLE_ITEMS: usize = 25; // Adjust based on terminal height
         
         if self.selected_index < self.scroll_offset {
             self.scroll_offset = self.selected_index;
         } else if self.selected_index >= self.scroll_offset + VISIBLE_ITEMS {
-            self.scroll_offset = self.selected_index - VISIBLE_ITEMS + 1;
+            self.scroll_offset = self.selected_index.saturating_sub(VISIBLE_ITEMS - 1);
         }
     }
     
     pub async fn tick(&mut self) -> Result<()> {
-        // Handle any pending search results
-        while let Ok(results) = self.search_rx.try_recv() {
-            self.content_results = results;
-            self.is_searching = false;
+        // Handle debounced search for file browser
+        if self.input_mode == InputMode::Editing 
+            && self.mode == AppMode::FileBrowser 
+            && !self.is_searching
+            && self.last_search_time.elapsed() >= self.search_debounce_duration 
+        {
+            // Check if we need to trigger a search
+            let should_search = self.last_search_time.elapsed() >= self.search_debounce_duration;
+            
+            if should_search {
+                // Reset the timer to prevent repeated searches
+                self.last_search_time = Instant::now() + Duration::from_secs(3600);
+                self.search_files().await?;
+            }
         }
+        
         Ok(())
     }
     
     pub fn get_visible_items(&self) -> (usize, usize) {
-        let total_items = match self.mode {
-            AppMode::FileBrowser => self.file_results.len(),
-            AppMode::ContentSearch => self.content_results.len(),
-            _ => 0,
-        };
+        let total_items = self.get_max_index();
         (self.scroll_offset, total_items)
     }
     
@@ -274,6 +325,32 @@ impl App {
             Some(&self.content_results[self.selected_index])
         } else {
             None
+        }
+    }
+    
+    pub fn get_status_info(&self) -> String {
+        if self.is_searching && !self.search_progress.is_empty() {
+            return self.search_progress.clone();
+        }
+        
+        match self.mode {
+            AppMode::FileBrowser => {
+                let total = self.file_results.len();
+                if total >= self.max_visible_items {
+                    format!("Files: {}+ (showing first {})", total, self.max_visible_items)
+                } else {
+                    format!("Files: {}", total)
+                }
+            }
+            AppMode::ContentSearch => {
+                let total = self.content_results.len();
+                if total >= self.max_visible_items {
+                    format!("Results: {}+ (showing first {})", total, self.max_visible_items)
+                } else {
+                    format!("Results: {}", total)
+                }
+            }
+            AppMode::Help => "Help".to_string(),
         }
     }
 }

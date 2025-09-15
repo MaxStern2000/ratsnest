@@ -4,7 +4,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{prelude::*, Terminal};
-use std::io::{self, stdout, Stdout};
+use std::io::{stdout, Stdout};
 
 use crate::{app::App, ui};
 

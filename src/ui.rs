@@ -104,10 +104,12 @@ fn render_file_browser(frame: &mut Frame, area: Rect, app: &App) {
         })
         .collect::<Vec<_>>();
 
+    let list_title = format!(" {} ", app.get_status_info());
+
     let list = List::new(visible_items)
         .block(
             Block::default()
-                .title(format!(" Files ({}) ", app.file_results.len()))
+                .title(list_title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Green)),
         )
@@ -161,14 +163,12 @@ fn render_content_search(frame: &mut Frame, area: Rect, app: &App) {
         })
         .collect::<Vec<_>>();
 
+    let list_title = format!(" {} ", app.get_status_info());
+
     let list = List::new(visible_items)
         .block(
             Block::default()
-                .title(if app.is_searching {
-                    format!(" Searching... ({}) ", app.content_results.len())
-                } else {
-                    format!(" Results ({}) ", app.content_results.len())
-                })
+                .title(list_title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Blue)),
         )
@@ -192,6 +192,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from(vec![Span::styled("Modes:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
         Line::from("  Tab          Switch between File/Content modes"),
         Line::from("  h/F1         Toggle help"),
+        Line::from("  r            Refresh/reload files"),
         Line::from(""),
         Line::from(vec![Span::styled("General:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
         Line::from("  q            Quit application"),
@@ -202,6 +203,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("• Respects .gitignore files"),
         Line::from("• Async/concurrent file processing"),
         Line::from("• Highlight matches in search"),
+        Line::from("• Caching for improved performance"),
     ];
 
     let help = Paragraph::new(help_text)
@@ -227,7 +229,7 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     };
 
     let footer_text = format!(
-        " {} | {} | Tab: Switch Mode | /: Search | q: Quit | h: Help ",
+        " {} | {} | Tab: Switch Mode | /: Search | r: Refresh | q: Quit | h: Help ",
         mode_indicator, input_indicator
     );
 
